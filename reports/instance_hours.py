@@ -35,50 +35,65 @@ from stacktach import models
 from stacktach import stacklog
 
 
-class AccountManager(object):
+class TenantManager(object):
     def __init__(self):
-        self.tenant_cache = dict()
+        self._types = None
 
-    def connect(self):
-        pass
+    def __enter__(self):
+        return self
 
-    def get_tenant_info(self, tenant):
-        if tenant not in self.tenant_cache:
-             tenant_info = dict(
-                     tenant=tenant, 
-                     account_type = 'core',
-                     billing_type = 'external',
-                     account_name = 'unknown account',
-                     email = 'anonymous@unknown.com',
-                     phone = '1-555-555-1212')
-             self.tenant_cache[tenant] = tenant_info
-        return self.tenant_cache[tenant]
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
 
-    def close(self):
-        pass
+    @property
+    def type_names(self):
+        if self._types is None:
+            self._types = set()
+            for t in models.TenantType.objects.all():
+                self._types.add(t.name)
+        return self._types
+
+    def get_tenant_info(self, tenant_id):
+        try:
+            tenant = models.TenantInfo.objects\
+                                      .get(tenant=tenant_id)
+            tenant_info = dict(
+                     tenant=tenant_id, 
+                     account_name=tenant.name)
+            ttypes = dict()
+            for t in tenant.types:
+                ttypes[t.name] = t.value
+        except models.TenantInfo.DoesNotExist:
+            tenant_info = dict(
+                     tenant=tenant_id, 
+                     account_name='unknown account')
+            ttypes = dict()
+            for t in self.type_names:
+                ttypes[t] = 'unknown'
+        tenant_info['types'] = ttypes
+        return tenant_info
 
 
 class InstanceHoursReport(object):
 
     FLAVOR_CLASS_WEIGHTS = dict(standard=1.0)
 
-    def __init__(self, account_manager, time=None, period_length='day'):
+    def __init__(self, tenant_manager, time=None, period_length='day'):
         if time is None:
             time = datetime.datetime.utcnow()
         self.start, self.end = usage_audit.get_previous_period(time, period_length)
-        self.account_manager = account_manager
+        self.tenant_manager = tenant_manager
         self.flavor_cache = dict()
         self.clear()
 
     def clear(self):
         self.count = 0 
         self.unit_hours = 0.0
-        self.by_tenant_account_type = dict()
-        self.by_tenant_billing_type = dict()
         self.by_flavor = dict()
         self.by_flavor_class = dict()
-        self.by_account_type = dict()
-        self.by_billing_type = dict()
+        for name in self.tenant_manager.type_names:
+            self.by_tenant[name] = dict()
+            self.by_type[name] = dict()
 
     def _get_verified_exists(self):
         start = dt.dt_to_decimal(self.start)
@@ -120,19 +135,10 @@ class InstanceHoursReport(object):
             self.flavor_cache[flavor] = (flavor, flavor_name, flavor_class, flavor_units)
         return self.flavor_cache[flavor]
 
-    def add_billing_type_hours(self, billing_type, unit_hours):
-        if billing_type not in self.by_billing_type:
-            self.by_billing_type[billing_type] = dict(count=0, unit_hours=0.0)
-        cts = self.by_billing_type[billing_type]
-        cts['count'] += 1
-        cts['unit_hours'] += unit_hours
-        cts['percent_count'] = (float(cts['count'])/self.count) * 100
-        cts['percent_unit_hours'] = (cts['unit_hours']/self.unit_hours) * 100
-
-    def add_account_type_hours(self, account_type, unit_hours):
-        if account_type not in self.by_account_type:
-            self.by_account_type[account_type] = dict(count=0, unit_hours=0.0)
-        cts = self.by_account_type[account_type]
+    def add_type_hours(self, type_name, type_value, unit_hours):
+        if type_value not in self.by_type[type_name]:
+            self.by_type[type_name][type_value] = dict(count=0, unit_hours=0.0)
+        cts = self.by_type[type_name][type_value]
         cts['count'] += 1
         cts['unit_hours'] += unit_hours
         cts['percent_count'] = (float(cts['count'])/self.count) * 100
@@ -159,40 +165,36 @@ class InstanceHoursReport(object):
 
     def add_tenant_hours(self, tenant_info, unit_hours):
         tenant = tenant_info['tenant']
-        account_type = tenant_info['account_type']
-        billing_type = tenant_info['billing_type']
-        if account_type not in self.by_tenant_account_type:
-            self.by_tenant_account_type[account_type] = dict()
-        if billing_type not in self.by_tenant_billing_type:
-            self.by_tenant_billing_type[billing_type] = dict()
-        if tenant not in self.by_tenant_account_type[account_type]:
-            cts = dict(count=0, unit_hours=0.0)
-            self.by_tenant_account_type[account_type][tenant] = cts
-            #if this tenant isn't listed by account_type, it won't be by billing type either.
-            self.by_tenant_billing_type[billing_type][tenant] = cts
-        cts = self.by_tenant_account_type[account_type][tenant]
+        cts = dict(count=0, unit_hours=0.0)
+        for tname, tvalue in tenant_info['types'].items():
+            if tvalue not in self.by_tenant[tname]:
+                self.by_tenant[tname][tvalue] = dict()
+            if tenant not in self.by_tenant[tname][tvalue]:
+                self.by_tenant[tname][tvalue][tenant] = cts
+            cts = self.by_tenant[tname][tvalue][tenant]
+            cts[tname] = tvalue
         cts['count'] += 1
         cts['unit_hours'] += unit_hours
         cts['percent_count'] = (float(cts['count'])/self.count) * 100
         cts['percent_unit_hours'] = (cts['unit_hours']/self.unit_hours) * 100
-        cts.update(tenant_info)
+        cts['tenant'] = tenant
+        cts['account_name'] = tenant_info['account_name']
 
     def compile_hours(self):
         exists = self._get_verified_exists()
         self.count = exists.count()
-        self.account_manager.connect()
-        for exist in exists:
-            hours = self._get_instance_hours(exist)
-            flavor, flavor_name, flavor_class, flavor_units = self._get_flavor_info(exist)
-            tenant_info = self.account_manager.get_tenant_info(exist.tenant)
-            unit_hours = hours * flavor_units
-            self.unit_hours += unit_hours
-            self.add_flavor_hours(flavor, flavor_name, unit_hours)
-            self.add_flavor_class_hours(flavor_class, unit_hours)
-            self.add_account_type_hours(tenant_info['account_type'], unit_hours)
-            self.add_billing_type_hours(tenant_info['billing_type'], unit_hours)
-            self.add_tenant_hours(tenant_info, unit_hours)
-        self.account_manager.close()
+        with self.tenant_manager as tenant_manager:
+            for exist in exists:
+                hours = self._get_instance_hours(exist)
+                flavor, flavor_name, flavor_class, flavor_units = self._get_flavor_info(exist)
+                tenant_info = tenant_manager.get_tenant_info(exist.tenant)
+                unit_hours = hours * flavor_units
+                self.unit_hours += unit_hours
+                self.add_flavor_hours(flavor, flavor_name, unit_hours)
+                self.add_flavor_class_hours(flavor_class, unit_hours)
+                for tname, tvalue in tenant_info['types'].items():
+                    self.add_type_hours(tname, tvalue, unit_hours)
+                self.add_tenant_hours(tenant_info, unit_hours)
 
     def top_hundred(self, key):
         def th(d):
@@ -200,17 +202,20 @@ class InstanceHoursReport(object):
             for t, customers in d.iteritems():
                 top[t] = sorted(customers.values(), key=operator.itemgetter(key), reverse=True)[:100]
             return top
-        return dict(account_type=th(self.by_tenant_account_type), billing_type=th(self.by_tenant_billing_type))
+        top_hundred = dict()
+        for type_name, tenants in self.by_tenant.iteritems():
+            top_hundred[type_name] = th(tenants)
+        return top_hundred
 
     def generate_json(self):
         report = dict(total_instance_count=self.count,
                       total_unit_hours=self.unit_hours,
                       flavor=self.by_flavor,
                       flavor_class=self.by_flavor_class,
-                      account_type=self.by_account_type,
-                      billing_type=self.by_billing_type,
                       top_hundred_by_count=self.top_hundred('count'),
                       top_hundred_by_unit_hours=self.top_hundred('unit_hours'))
+        for ttype, stats in self.by_type.iteritems():
+            report[ttype] = stats
         return json.dumps(report)
 
     def store(self, json_report):
@@ -251,9 +256,9 @@ if __name__ == '__main__':
     log_listener = stacklog.LogListener(parent_logger)
     log_listener.start()
 
-    account_manager = AccountManager()
+    tenant_manager = TenantManager()
     report = InstanceHoursReport(
-                account_manager,
+                tenant_manager,
                 time=args.utcdatetime,
                 period_length=args.period_length)
 

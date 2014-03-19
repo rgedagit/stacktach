@@ -411,6 +411,39 @@ class DBAPITestCase(StacktachBaseTestCase):
         self.assertEqual(resp.status_code, 400)
         self.mox.VerifyAll()
 
+    def test_update_tenant_info(self):
+        TEST_TENANT='test'
+
+        models.TenantInfo.objects = self.mox.CreateMockAnything()
+        models.TenantType.objects = self.mox.CreateMockAnything()
+
+        fake_request = self.mox.CreateMockAnything()
+        fake_request.method = 'PUT'
+        body_dict = dict(tenants=[dict(tenant=TEST_TENANT, 
+                                       name='test name',
+                                       types=dict(test_type='thingy'))])
+        body = json.dumps(body_dict)
+        fake_request.body = body
+
+        info = self.mox.CreateMockAnything()
+        info_result = self.mox.CreateMockAnything()
+        models.TenantInfo.objects.select_for_update().AndReturn(info_result)
+        info_result.get(tenant=TEST_TENANT).AndReturn(info)
+        info.save()
+
+        ttype = self.mox.CreateMockAnything()
+        models.TenantType.objects.get(name='test_type', value='thingy').AndReturn(ttype)
+        ttype.__hash__().AndReturn(hash('test_type'))
+        info.save()
+
+        self.mox.ReplayAll()
+
+        dbapi.update_tenant_info(fake_request)
+
+        self.assertEqual(info.name, 'test name')
+        self.assertEqual(info.types, [ttype])
+        self.mox.VerifyAll()
+
     def test_send_status(self):
         fake_request = self.mox.CreateMockAnything()
         fake_request.method = 'PUT'

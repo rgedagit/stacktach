@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 import decimal
+import datetime
 import functools
 import json
 from datetime import datetime
@@ -514,3 +515,47 @@ def repair_stacktach_down(request):
                             content_type="application/json")
     return response
 
+
+def _update_tenant_info_cache(tenant_info):
+    tenant_id = tenant_info['tenant']
+    try:
+        tenant = models.TenantInfo.objects\
+                                  .select_for_update()\
+                                  .get(tenant=tenant_id)
+    except models.TenantInfo.DoesNotExist:
+        tenant = models.TenantInfo(tenant=tenant_id)
+    tenant.name = tenant_info['name']
+    tenant.last_updated = datetime.datetime.utcnow()
+    tenant.save()
+
+    types = set()
+    for type_name, type_value in tenant_info['types'].items():
+        try:
+            tenant_type = models.TenantType.objects\
+                                           .get(name=type_name,
+                                                value=type_value)
+        except models.TenantType.DoesNotExist:
+            tenant_type = models.TenantType(name=type_name,
+                                            value=type_value)
+            tenant_type.save()
+        types.add(tenant_type)
+    tenant.types = list(types)
+    tenant.save()
+
+
+@api_call
+def update_tenant_info(request):
+    if request.method not in ['PUT', 'POST']:
+        raise BadRequestException(message="Invalid method")
+
+    if request.body is None or request.body == '':
+        raise BadRequestException(message="Request body required")
+
+    body = json.loads(request.body)
+    if body.get('tenants') is not None:
+        tenants = body['tenants']
+        for tenant in tenants:
+            _update_tenant_info_cache(tenant)
+    else:
+        msg = "'tenants' missing from request body"
+        raise BadRequestException(message=msg)

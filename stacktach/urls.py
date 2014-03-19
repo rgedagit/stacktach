@@ -109,6 +109,9 @@ dbapi_urls = (
         'stacktach.dbapi.get_usage_exist_stats_glance'),
     url(r'^db/stats/events/', 'stacktach.dbapi.get_event_stats'),
     url(r'^db/repair/', 'stacktach.dbapi.repair_stacktach_down'),
+    url(r'db/tenant/info/$',
+        'stacktach.dbapi.update_tenant_info'),
+
 )
 
 urlpatterns = patterns('', *(web_urls + stacky_urls + dbapi_urls))
