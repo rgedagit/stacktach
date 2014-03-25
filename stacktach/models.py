@@ -363,6 +363,7 @@ class InstanceExists(models.Model):
                 exists = InstanceExists.objects.get(message_id=message_id)
                 if exists.status == InstanceExists.PENDING:
                     exists.status = InstanceExists.SENT_UNVERIFIED
+                    exists.send_status = '201'
                     exists.save()
                 else:
                     exists_not_pending.append(message_id)
@@ -598,6 +599,7 @@ class ImageExists(models.Model):
                 for exists in exists_list:
                     if exists.status == ImageExists.PENDING:
                         exists.status = ImageExists.SENT_UNVERIFIED
+                        exists.send_status = '201'
                         exists.save()
                     else:
                         exists_not_pending.append(message_id)
