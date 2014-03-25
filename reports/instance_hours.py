@@ -61,7 +61,7 @@ class TenantManager(object):
                      tenant=tenant_id, 
                      account_name=tenant.name)
             ttypes = dict()
-            for t in tenant.types:
+            for t in tenant.types.all():
                 ttypes[t.name] = t.value
         except models.TenantInfo.DoesNotExist:
             tenant_info = dict(
@@ -91,6 +91,8 @@ class InstanceHoursReport(object):
         self.unit_hours = 0.0
         self.by_flavor = dict()
         self.by_flavor_class = dict()
+        self.by_tenant = dict()
+        self.by_type = dict()
         for name in self.tenant_manager.type_names:
             self.by_tenant[name] = dict()
             self.by_type[name] = dict()

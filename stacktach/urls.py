@@ -109,8 +109,10 @@ dbapi_urls = (
         'stacktach.dbapi.get_usage_exist_stats_glance'),
     url(r'^db/stats/events/', 'stacktach.dbapi.get_event_stats'),
     url(r'^db/repair/', 'stacktach.dbapi.repair_stacktach_down'),
-    url(r'db/tenant/info/$',
+    url(r'db/tenant/info/(?P<tenant_id>\w+)/$',
         'stacktach.dbapi.update_tenant_info'),
+    url(r'db/tenant/batch_info/$',
+        'stacktach.dbapi.batch_update_tenant_info'),
 
 )
 
