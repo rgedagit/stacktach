@@ -525,7 +525,7 @@ def _update_tenant_info_cache(tenant_info):
     except models.TenantInfo.DoesNotExist:
         tenant = models.TenantInfo(tenant=tenant_id)
     tenant.name = tenant_info['name']
-    tenant.last_updated = datetime.datetime.utcnow()
+    tenant.last_updated = datetime.utcnow()
     tenant.save()
 
     types = set()
@@ -550,7 +550,7 @@ def _batch_update_tenant_info(info_list):
                                .filter(tenant__in=list(tenant_ids))
                                .values('tenant'))
     new_tenants = []
-    now = datetime.datetime.utcnow()
+    now = datetime.utcnow()
     for tenant in (tenant_ids - old_tenants):
         new_tenants.append(models.TenantInfo(tenant=tenant, 
                                              name=tenant_info[tenant]['name'],

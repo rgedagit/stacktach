@@ -491,8 +491,8 @@ class DBAPITestCase(StacktachBaseTestCase):
         TypeXref = models.TenantInfo.types.through
         TypeXref.objects = self.mox.CreateMockAnything()
 
-        self.mox.StubOutWithMock(datetime, 'datetime')
-        datetime.datetime.utcnow().AndReturn(TEST_DATE)
+        self.mox.StubOutWithMock(dbapi, 'datetime')
+        dbapi.datetime.utcnow().AndReturn(TEST_DATE)
 
         fake_request = self.mox.CreateMockAnything()
         fake_request.method = 'PUT'
@@ -513,7 +513,8 @@ class DBAPITestCase(StacktachBaseTestCase):
                      mox.IsA(models.TenantInfo),
                      mox.ContainsAttributeValue('tenant','test_new'),
                      mox.ContainsAttributeValue('name', 'test new name'),
-                     mox.ContainsAttributeValue('last_updated', TEST_DATE)))))
+                     mox.ContainsAttributeValue('last_updated', TEST_DATE)
+                     ))))
 
         fake_tenants = self.mox.CreateMockAnything()
         models.TenantInfo.objects.filter(tenant__in=['test_old', 'test_new'])\
