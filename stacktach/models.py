@@ -409,6 +409,22 @@ class JsonReport(models.Model):
     json = models.TextField()
 
 
+class TenantType(models.Model):
+    name = models.CharField(max_length=50, db_index=True)
+    value = models.CharField(max_length=50, db_index=True)
+
+
+class TenantInfo(models.Model):
+    """This contains tenant information synced from an external source.
+    It's mostly used as a cache to put things like tenant name on reports
+    without making alot of calls to an external system."""
+    tenant = models.CharField(max_length=50, db_index=True, unique=True)
+    name = models.CharField(max_length=100, null=True,
+                            blank=True, db_index=True)
+    types = models.ManyToManyField(TenantType)
+    last_updated = models.DateTimeField(db_index=True)
+
+
 class GlanceRawData(models.Model):
     result_titles = [["#", "?", "When", "Deployment", "Event", "Host",
                           "Status"]]
