@@ -120,9 +120,9 @@ def _audit_launches_to_exists(launches, exists, beginning):
                     launched_at = dt.dt_from_decimal(expected['launched_at'])
                     usage = InstanceUsage.find(instance, launched_at)[0]
                     host = usage.host()
-                    deployment = usage.deployment()
+                    deployment = usage.latest_deployment_for_request_id()
                     fails.append(['Launch', expected['id'], msg,
-                                  'Y' if rec else 'N', host, deployment])
+                                  'Y' if rec else 'N', host, deployment.name])
         else:
             rec = False
             if reconciler:
@@ -132,9 +132,9 @@ def _audit_launches_to_exists(launches, exists, beginning):
             launched_at = dt.dt_from_decimal(launches[0]['launched_at'])
             usage = InstanceUsage.find(instance, launched_at)[0]
             host = usage.host()
-            deployment = usage.deployment()
+            deployment = usage.latest_deployment_for_request_id()
             fails.append(['Launch', '-', msg, 'Y' if rec else 'N', host,
-                          deployment])
+                          deployment.name])
     return fails
 
 

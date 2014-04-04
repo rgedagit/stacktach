@@ -175,7 +175,14 @@ class InstanceUsage(models.Model):
     rax_options = models.TextField(null=True, blank=True)
 
     def deployment(self):
-        return self.latest_raw_for_request_id().deployment.name
+        raws = RawData.objects.filter(request_id=self.request_id)
+        if raws.count() == 0:
+            return False
+        raw = raws[0]
+        return raw.deployment
+
+    def latest_deployment_for_request_id(self):
+        return self.latest_raw_for_request_id().deployment
 
     def latest_raw_for_request_id(self):
         return RawData.objects.filter(
