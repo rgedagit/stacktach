@@ -254,8 +254,7 @@ def store_results(start, end, summary, details):
 
 def make_json_report(summary, details):
     report = [{'summary': summary},
-              ['Object', 'ID', 'Error Description', 'Reconciled?', 'Cell',
-               'Deployment']]
+              ['Object', 'ID', 'Error Description', 'Reconciled?']]
     report.extend(details['exist_fails'])
     report.extend(details['launch_fails'])
     return json.dumps(report)
