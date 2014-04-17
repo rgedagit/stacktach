@@ -29,7 +29,6 @@ sys.path.append(os.environ.get('STACKTACH_INSTALL_DIR', '/stacktach'))
 
 import usage_audit
 
-from stacktach.models import InstanceUsage
 from stacktach import datetime_to_decimal as dt
 from stacktach import models
 from stacktach.reconciler import Reconciler
@@ -117,24 +116,14 @@ def _audit_launches_to_exists(launches, exists, beginning):
                         rec = reconciler.missing_exists_for_instance(*args)
                     msg = "Couldn't find exists for launch (%s, %s)"
                     msg = msg % (instance, expected['launched_at'])
-                    launched_at = dt.dt_from_decimal(expected['launched_at'])
-                    usage = InstanceUsage.find(instance, launched_at)[0]
-                    host = usage.host()
-                    deployment = usage.latest_deployment_for_request_id()
-                    fails.append(['Launch', expected['id'], msg,
-                                  'Y' if rec else 'N', host, deployment.name])
+                    fails.append(['Launch', expected['id'], msg, 'Y' if rec else 'N'])
         else:
             rec = False
             if reconciler:
                 args = (launches[0]['id'], beginning)
                 rec = reconciler.missing_exists_for_instance(*args)
             msg = "No exists for instance (%s)" % instance
-            launched_at = dt.dt_from_decimal(launches[0]['launched_at'])
-            usage = InstanceUsage.find(instance, launched_at)[0]
-            host = usage.host()
-            deployment = usage.latest_deployment_for_request_id()
-            fails.append(['Launch', '-', msg, 'Y' if rec else 'N', host,
-                          deployment.name])
+            fails.append(['Launch', '-', msg, 'Y' if rec else 'N'])
     return fails
 
 
@@ -244,7 +233,7 @@ def store_results(start, end, summary, details):
         'created': dt.dt_to_decimal(datetime.datetime.utcnow()),
         'period_start': start,
         'period_end': end,
-        'version': 7,
+        'version': 6,
         'name': 'nova usage audit'
     }
 
@@ -254,8 +243,7 @@ def store_results(start, end, summary, details):
 
 def make_json_report(summary, details):
     report = [{'summary': summary},
-              ['Object', 'ID', 'Error Description', 'Reconciled?', 'Cell',
-               'Deployment']]
+              ['Object', 'ID', 'Error Description', 'Reconciled?']]
     report.extend(details['exist_fails'])
     report.extend(details['launch_fails'])
     return json.dumps(report)
