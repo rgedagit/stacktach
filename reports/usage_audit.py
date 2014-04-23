@@ -27,7 +27,7 @@ def _status_queries(exists_query):
     pending = exists_query.filter(status=models.InstanceExists.PENDING)
     verifying = exists_query.filter(status=models.InstanceExists.VERIFYING)
     sent_unverified = exists_query.filter(status=models.InstanceExists.SENT_UNVERIFIED)
-    sent_failed = exists_query.filter(status=models.InstanceExists.VERIFYING)
+    sent_failed = exists_query.filter(status=models.InstanceExists.SENT_FAILED)
     sent_verifying = exists_query.filter(status=models.InstanceExists.SENT_VERIFYING)
     return verified, reconciled, fail, pending, verifying, sent_unverified, \
         sent_failed, sent_verifying
