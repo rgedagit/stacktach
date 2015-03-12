@@ -31,8 +31,9 @@ class Notification(object):
         self.publisher = self.body['publisher_id']
         self.event = self.body['event_type']
         jsdata = js.loads(json)
-        tmp = jsdata[1]['_context_auth_token']
-        jsdata[1]['_context_auth_token'] = "*********"
+        if "_context_auth_token" in jsdata[1].keys():
+            tmp = jsdata[1]['_context_auth_token']
+            jsdata[1]['_context_auth_token'] = "*********"
         self.json = js.dumps(jsdata) 
 
 
