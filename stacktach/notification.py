@@ -18,6 +18,7 @@ from stacktach import utils
 from stacktach import stacklog
 from stacktach import image_type
 from stacktach import db
+import json as js
 
 
 class Notification(object):
@@ -26,10 +27,13 @@ class Notification(object):
         self.request_id = body.get('_context_request_id', "")
         self.deployment = deployment
         self.routing_key = routing_key
-        self.json = json
         self.payload = body.get('payload', {})
         self.publisher = self.body['publisher_id']
         self.event = self.body['event_type']
+        jsdata = js.loads(json)
+        tmp = jsdata[1]['_context_auth_token']
+        jsdata[1]['_context_auth_token'] = "*********"
+        self.json = js.dumps(jsdata) 
 
 
     @property
